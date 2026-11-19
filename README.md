@@ -179,6 +179,6 @@ O Docker Compose fornecido continua destinado ao desenvolvimento local. Nunca pu
 
 ## Vídeo demonstrativo
 
-Link da gravação narrada (3 a 5 minutos): https://drive.google.com/file/d/1rWZwfpRRk3R2LGLp-1G7_8tmi_inEme9/view?usp=sharing
+Link da gravação narrada (3 a 5 minutos): https://drive.google.com/file/d/1upc6oE1FKvegdO_smiduAwqM_rgsbrNl/view?usp=sharing
 
 
