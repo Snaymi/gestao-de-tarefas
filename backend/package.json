@@ -6,6 +6,8 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/src/main.js",
+    "start:production": "npm run db:migrate && npm run start",
+    "admin:create": "tsx prisma/create-admin.ts",
     "test": "jest --runInBand",
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",

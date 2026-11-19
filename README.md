@@ -99,14 +99,16 @@ Essas credenciais são **apenas para desenvolvimento**. Podem ser alteradas ante
 
 ```powershell
 cd backend
+npm run db:generate
 npm test
 npm run build
 
 cd ..\frontend
+npm test
 npm run build
 ```
 
-O teste de `backend/src/tasks/tasks.spec.ts` usa PostgreSQL real e exige `backend/.env`, o banco ativo e a migração aplicada. Ele verifica que uma tarefa concluída permanece no banco após tentativa de exclusão por `ADMIN` e por `USER`, além de cobrir exclusão permitida, acesso negado e conclusão final.
+O teste de `backend/src/tasks/tasks.spec.ts` usa PostgreSQL real e exige `backend/.env`, o banco local ativo e a migração aplicada. Antes de executá-lo, confirme que `DATABASE_URL` aponta para `localhost`; não rode essa suíte contra produção. Ele verifica que uma tarefa concluída permanece no banco após tentativa de exclusão por `ADMIN` e por `USER`, além de cobrir exclusão permitida, acesso negado e conclusão final. O teste do frontend é executado pelo Vitest.
 
 ## API
 
@@ -114,6 +116,7 @@ Todas as rotas começam com `/api`.
 
 | Método | Rota | Descrição |
 | --- | --- | --- |
+| GET | `/health` | Verificação pública de disponibilidade |
 | POST | `/auth/login` | Inicia a sessão |
 | POST | `/auth/logout` | Encerra a sessão |
 | GET | `/auth/me` | Usuário autenticado |
@@ -126,17 +129,50 @@ Todas as rotas começam com `/api`.
 
 ## Build e deploy
 
-Para gerar o frontend, execute `npm run build` em `frontend`; os arquivos saem em `frontend/dist`. Para gerar a API, execute `npm run db:generate` e `npm run build` em `backend`; o comando `npm run start` executa o resultado.
+Para gerar o frontend, execute `npm run build` em `frontend`; os arquivos saem em `frontend/dist`. Para gerar a API, execute `npm run db:generate` e `npm run build` em `backend`; `npm run start` executa o resultado compilado. O Render usa `npm run start:production`, que aplica as migrations pendentes antes de iniciar a API.
 
-Em produção, use PostgreSQL gerenciado ou com volume persistente, aplique `npm run db:migrate`, configure `DATABASE_URL`, `JWT_SECRET` (mínimo 32 caracteres), `FRONTEND_ORIGIN` e `PORT`, e sirva o frontend estático por HTTPS com fallback para `index.html`. Defina `VITE_API_URL` no build do frontend como a URL pública da API terminada em `/api`. O cookie de sessão usa `Secure` quando `NODE_ENV=production`, portanto o acesso público deve ser HTTPS. Não execute o seed de demonstração em produção.
+### Demonstração pública gratuita
 
-O Docker Compose fornecido é voltado ao desenvolvimento. Não há deploy público configurado neste repositório.
+O Blueprint de [render.yaml](render.yaml) define a API Node e o PostgreSQL no plano Free do Render, na região Virginia. A implantação gratuita pode ser suspensa e serve para demonstração técnica, não para produção comercial ou alta disponibilidade.
+
+- O serviço web gratuito suspende após 15 minutos sem acessos e pode levar cerca de um minuto para voltar.
+- O PostgreSQL gratuito tem limite de 1 GB, 25 MB de RAM e 50 conexões, não oferece backups gerenciados e expira 30 dias após a criação. Há um período de 14 dias após a expiração para upgrade; depois disso, o Render exclui o banco e seus dados. Exporte os dados antes do prazo.
+- O Render oferece 750 horas gratuitas de serviço por workspace e cotas mensais compartilhadas de banda de saída e minutos de build. Sem método de pagamento vinculado, exceder cotas suspende o serviço ou pausa novos builds; não adicione cartão nem aceite upgrade para esta demonstração.
+- A Vercel Hobby é gratuita para uso pessoal e não comercial. Confira as condições da conta antes de publicar; ao exceder limites gratuitos, o uso pode ser pausado.
+
+#### Frontend na Vercel
+
+Conecte `Snaymi/gestao-de-tarefas` na Vercel e configure o diretório raiz como `frontend`, framework Vite, build `npm run build` e saída `dist`. Deixe `VITE_API_URL` sem definir: o navegador usa `/api`. Em `frontend/vercel.json`, mantenha primeiro o rewrite de `/api/:path*` para `https://<domínio-real-da-api-render>/api/:path*` e depois o fallback `/(.*)` para `/index.html`, para preservar as rotas do Vue Router. Substitua o exemplo pelo domínio real antes de publicar. Não use previews com dados de produção.
+
+#### API e banco no Render
+
+Crie o Blueprint a partir da branch `main` e confirme que API e PostgreSQL aparecem como `Free` antes de aplicar. O serviço usa `backend` como raiz, Node.js 22.22.0, build `npm ci --include=dev && npm run db:generate && npm run build` e start `npm run start:production`. Esse comando aplica `prisma migrate deploy` antes de iniciar a API. Como o Free não tem pre-deploy, as migrations versionadas são reaplicadas de forma idempotente quando a instância inicia; uma falha de migração impede a API de subir. O seed de demonstração nunca é executado.
+
+O Render fornece `DATABASE_URL` pela conexão interna do banco, `JWT_SECRET` gerado no provedor, `NODE_ENV=production` e `PORT`. Depois de conhecer o domínio da Vercel, defina `FRONTEND_ORIGIN` com a origem exata (sem wildcard). Mantenha o banco com acesso externo bloqueado, como definido no Blueprint; a API na mesma região acessa o banco pela rede privada.
+
+#### Primeiro administrador
+
+Não há endpoint público de bootstrap e o seed de desenvolvimento não pode ser executado em produção. Depois que o PostgreSQL estiver ativo e as migrations terminarem, abra temporariamente a lista de IPs externos do banco no painel do Render, permitindo apenas o IP atual (`/32`). Em um terminal PowerShell interativo:
+
+```powershell
+cd backend
+npm ci
+npm run admin:create
+```
+
+O comando solicita a URL externa do PostgreSQL sem exibi-la, exige TLS, mostra apenas host e nome do banco para confirmação e pede nome, e-mail e senha (sem ecoar a senha). Só cria o primeiro ADMIN se o banco estiver vazio; usa bcrypt e uma transação com lock. Nunca passe conexão ou senha como argumento, não salve em `.env` e não cole no chat. Ao concluir, remova o IP temporário do acesso externo. Se já houver usuário ou ADMIN, o comando não cria outro.
+
+#### Atualizações, logs e substituição do banco
+
+Commits na branch configurada disparam novos builds. Consulte logs de build/runtime no painel de cada provedor e valide `/api/health`, login, sessão após recarga, logout, rotas `/tarefas` e `/usuarios`, operações de tarefas e permissões. O banco gratuito não tem backup gerenciado: antes do 30º dia, exporte o PostgreSQL com `pg_dump` por TLS para um arquivo local protegido. Para substituir por outro PostgreSQL gratuito, restaure esse dump com `pg_restore`, atualize `DATABASE_URL` do Render pelo painel seguro e confirme saúde e dados antes de desativar o banco antigo. Não use `prisma migrate reset` nem `prisma db push` em produção.
+
+O Docker Compose fornecido continua destinado ao desenvolvimento local. Nunca publique `backend/.env`, connection strings ou valores de segredos no GitHub.
 
 ## Limitações conhecidas
 
 - A listagem de tarefas ainda não tem paginação para volumes muito grandes.
 - O vídeo narrado precisa ser gravado e hospedado manualmente.
-- O `npm audit` do backend ainda aponta avisos moderados em dependências de ferramentas; não há avisos altos ou críticos na árvore instalada. O frontend está sem avisos no `npm audit`.
+- Verificação de `npm audit` em 19/11/2026: 19 avisos moderados na árvore de ferramentas de desenvolvimento do backend (Nest CLI, Jest e dependências transitivas), sem avisos altos ou críticos; frontend com zero avisos. Refaça a auditoria após atualizar dependências.
 
 ## Vídeo demonstrativo
 
