@@ -1,0 +1,40 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tasks}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tasks_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-tasks}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      retries: 15
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-tasks}:${POSTGRES_PASSWORD:-tasks_dev_only}@db:5432/${POSTGRES_DB:-tasks}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-change-before-deploy}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5173}
+      PORT: 3000
+      NODE_ENV: development
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Admin123!}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-User123!}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+  web:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://localhost:${API_PORT:-3000}/api
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    depends_on:
+      - api
+volumes:
+  postgres_data:
