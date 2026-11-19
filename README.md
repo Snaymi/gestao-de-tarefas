@@ -2,6 +2,14 @@
 
 Aplicação full stack de gestão de tarefas com autenticação, perfis de acesso, PostgreSQL e interface responsiva.
 
+## Acesso à demonstração online
+
+Acesse o [Fluxo — Gestão de Tarefas](https://fluxo-gestao-tarefas.vercel.app/login) para avaliar a plataforma online.
+
+A conta preparada para a avaliação tem perfil `ADMIN` e usa o e-mail `admin@demo.com.br`. Os dados de acesso, incluindo a senha, são fornecidos diretamente aos avaliadores por canal privado.
+
+As contas `@demo.local` descritas na seção [Contas de demonstração](#contas-de-demonstração) são exclusivas do ambiente de desenvolvimento local.
+
 ## Funcionalidades
 
 - Login por e-mail e senha com cookie HTTP-only.
