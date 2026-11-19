@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { AuditLog } from '../../types';
 import AuditActionBadge from '../atoms/AuditActionBadge.vue';
+import RecordDetailsDialog from './RecordDetailsDialog.vue';
+import { auditActionLabels } from '../../utils/audit';
 
 const props = defineProps<{ entry: AuditLog }>();
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'medium' });
 const timeFormatter = new Intl.DateTimeFormat('pt-BR', { timeStyle: 'medium' });
 const timestamp = computed(() => new Date(props.entry.createdAt));
+const detailsOpen = ref(false);
 
 const fieldLabels: Record<string, string> = {
   title: 'Título', description: 'Descrição', owner: 'Responsável', name: 'Nome',
@@ -56,10 +59,26 @@ function formattedDetails(details: Record<string, unknown> | null): string[] {
 }
 
 const detailLines = computed(() => formattedDetails(props.entry.details));
+const detailFields = computed(() => [
+  { label: 'Ação', value: auditActionLabels[props.entry.action] },
+  {
+    label: 'Responsável',
+    value: [props.entry.actorName, props.entry.actorRole === 'ADMIN' ? 'Administrador' : props.entry.actorRole === 'USER' ? 'Usuário' : '', props.entry.actorEmail ?? '']
+      .filter(Boolean)
+      .join(' · ')
+  },
+  ...(props.entry.entityLabel ? [{
+    label: props.entry.entityType === 'AUTH' ? 'Conta relacionada' : props.entry.entityType === 'TASK' ? 'Tarefa' : 'Usuário relacionado',
+    value: props.entry.entityLabel
+  }] : []),
+  { label: 'Data', value: dateFormatter.format(timestamp.value) },
+  { label: 'Horário', value: timeFormatter.format(timestamp.value) },
+  ...(detailLines.value.length ? [{ label: 'Alterações', value: detailLines.value.join(' · ') }] : [])
+]);
 </script>
 
 <template>
-  <article class="audit-entry panel">
+  <article class="audit-entry audit-entry-desktop panel">
     <div class="entry-main">
       <div class="entry-heading">
         <AuditActionBadge :action="entry.action" />
@@ -84,10 +103,37 @@ const detailLines = computed(() => formattedDetails(props.entry.details));
       <strong>{{ timeFormatter.format(timestamp) }}</strong>
     </time>
   </article>
+
+  <button
+    class="audit-entry-mobile panel"
+    type="button"
+    :aria-label="`Ver detalhes da atividade: ${entry.summary}`"
+    aria-haspopup="dialog"
+    @click="detailsOpen = true"
+  >
+    <span class="mobile-audit-heading">
+      <AuditActionBadge :action="entry.action" />
+      <strong>{{ entry.summary }}</strong>
+    </span>
+    <span class="mobile-audit-meta">
+      <span>{{ entry.actorName }}</span>
+      <time :datetime="entry.createdAt">{{ dateFormatter.format(timestamp) }} · {{ timeFormatter.format(timestamp) }}</time>
+    </span>
+    <span class="mobile-audit-hint">Toque para ver detalhes</span>
+  </button>
+
+  <RecordDetailsDialog
+    v-if="detailsOpen"
+    :title="entry.summary"
+    subtitle="Detalhes da atividade"
+    :fields="detailFields"
+    @close="detailsOpen = false"
+  />
 </template>
 
 <style scoped>
 .audit-entry { padding: 18px 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.audit-entry-mobile { display: none; }
 .entry-main { min-width: 0; flex: 1; }
 .entry-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .entry-heading h2 { font-size: 15px; line-height: 1.45; margin: 0; font-weight: 650; overflow-wrap: anywhere; }
@@ -99,9 +145,20 @@ const detailLines = computed(() => formattedDetails(props.entry.details));
 .entry-details li { color: var(--text-muted); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .entry-time { display: grid; gap: 4px; flex: none; text-align: right; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
 .entry-time strong { color: var(--text); font-size: 13px; font-weight: 650; }
-@media (max-width: 600px) {
-  .audit-entry { padding: 16px; flex-direction: column-reverse; gap: 11px; }
-  .entry-time { display: flex; gap: 8px; text-align: left; font-size: 11px; }
-  .entry-time strong { font-size: 11px; }
+@media (max-width: 700px) {
+  .audit-entry-desktop { display: none; }
+  .audit-entry-mobile {
+    width: 100%;
+    display: grid;
+    gap: 10px;
+    padding: 15px;
+    color: var(--text);
+    text-align: left;
+  }
+  .mobile-audit-heading { display: grid; justify-items: start; gap: 8px; min-width: 0; }
+  .mobile-audit-heading strong { font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+  .mobile-audit-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: var(--text-muted); font-size: 11px; overflow-wrap: anywhere; }
+  .mobile-audit-meta time { font-variant-numeric: tabular-nums; }
+  .mobile-audit-hint { color: var(--accent); font-size: 11px; font-weight: 700; }
 }
 </style>

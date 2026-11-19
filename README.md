@@ -175,7 +175,7 @@ O Docker Compose fornecido continua destinado ao desenvolvimento local. Nunca pu
 
 - A listagem de tarefas ainda não tem paginação para volumes muito grandes.
 - O vídeo narrado precisa ser gravado e hospedado manualmente.
-- Verificação de `npm audit` em 19/11/2026: 19 avisos moderados na árvore de ferramentas de desenvolvimento do backend (Nest CLI, Jest e dependências transitivas), sem avisos altos ou críticos; frontend com zero avisos. Refaça a auditoria após atualizar dependências.
+- Verificação de `npm audit` em 19/11/2026: 19 avisos moderados no backend, ligados às dependências de ferramentas de desenvolvimento (`glob` e `minimatch`), e zero no frontend. O backend ficou com zero avisos em `npm audit --omit=dev`. O override de `effect` para `3.22.1` em `@prisma/config` corrige o [GHSA-7589-6fvf-x4pw](https://github.com/advisories/GHSA-7589-6fvf-x4pw) e mantém Prisma e Prisma Client na versão 6.19.3. Reavalie o override ao atualizar o Prisma.
 
 ## Vídeo demonstrativo
 

@@ -20,6 +20,9 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.0", "@nestjs/testing": "^11.0.0", "@types/cookie-parser": "^1.4.8", "@types/express": "^5.0.0", "@types/jest": "^30.0.0", "@types/node": "^24.0.0", "jest": "^30.0.0", "prisma": "6.19.3", "ts-jest": "^29.4.0", "tsx": "^4.20.0", "typescript": "^5.9.0"
   },
-  "overrides": { "deepmerge-ts": "8.0.2" },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "@prisma/config": { "effect": "3.22.1" }
+  },
   "jest": {"preset":"ts-jest","testEnvironment":"node","rootDir":"src","testRegex":".*\\.spec\\.ts$"}
 }
