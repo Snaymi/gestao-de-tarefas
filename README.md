@@ -179,6 +179,6 @@ O Docker Compose fornecido continua destinado ao desenvolvimento local. Nunca pu
 
 ## Vídeo demonstrativo
 
-Link da gravação narrada (3 a 5 minutos): **a adicionar após a gravação**.
+Link da gravação narrada (3 a 5 minutos): https://drive.google.com/file/d/1rWZwfpRRk3R2LGLp-1G7_8tmi_inEme9/view?usp=sharing
 
-Roteiro sugerido: login como usuário, criação/edição/conclusão de tarefa, tentativa de exclusão de concluída, login como administrador, cadastro de usuário, dashboard, responsividade e explicação da regra no backend.
+
