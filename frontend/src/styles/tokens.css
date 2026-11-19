@@ -1,3 +1,182 @@
-:root { color-scheme: light; --bg:#f6f7fb; --surface:#ffffff; --surface-raised:#ffffff; --surface-muted:#f0f2f7; --text:#172033; --text-muted:#667085; --border:#e5e8ef; --accent:#5548d9; --accent-hover:#4537c4; --accent-soft:#edeaff; --success:#147d59; --success-soft:#e5f8ef; --warning:#a15d08; --warning-soft:#fff3da; --danger:#ba304a; --danger-soft:#ffeaf0; --disabled:#aab0bd; --shadow:0 16px 44px rgba(31,35,73,.07); --radius:18px; --ease:180ms ease; }
-[data-theme="dark"] { color-scheme: dark; --bg:#10131e; --surface:#191d2b; --surface-raised:#222739; --surface-muted:#272c3c; --text:#f4f5fa; --text-muted:#a6afc1; --border:#343a4b; --accent:#a99fff; --accent-hover:#c0b8ff; --accent-soft:#343052; --success:#79ddb2; --success-soft:#1e4036; --warning:#f2c477; --warning-soft:#493924; --danger:#ff9baa; --danger-soft:#4b2834; --disabled:#687083; --shadow:0 16px 44px rgba(0,0,0,.15); }
-@theme inline { --color-app:var(--bg); --color-surface:var(--surface); --color-ink:var(--text); --color-muted:var(--text-muted); --color-accent:var(--accent); }
+@property --bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f6f7fb;
+}
+@property --surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --surface-raised {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffffff;
+}
+@property --surface-muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #f0f2f7;
+}
+@property --text {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #172033;
+}
+@property --text-muted {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #667085;
+}
+@property --border {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e5e8ef;
+}
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5548d9;
+}
+@property --accent-hover {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #4537c4;
+}
+@property --accent-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #edeaff;
+}
+@property --success {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #147d59;
+}
+@property --success-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #e5f8ef;
+}
+@property --warning {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #a15d08;
+}
+@property --warning-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #fff3da;
+}
+@property --danger {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ba304a;
+}
+@property --danger-soft {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #ffeaf0;
+}
+@property --disabled {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #aab0bd;
+}
+@property --shadow-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(31, 35, 73, 0.07);
+}
+@property --login-brand-surface {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5548d9;
+}
+
+:root {
+  color-scheme: light;
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-muted: #f0f2f7;
+  --text: #172033;
+  --text-muted: #667085;
+  --border: #e5e8ef;
+  --accent: #5548d9;
+  --accent-hover: #4537c4;
+  --accent-soft: #edeaff;
+  --success: #147d59;
+  --success-soft: #e5f8ef;
+  --warning: #a15d08;
+  --warning-soft: #fff3da;
+  --danger: #ba304a;
+  --danger-soft: #ffeaf0;
+  --disabled: #aab0bd;
+  --brand-highlight: #d7d1ff;
+  --shadow-color: rgba(31, 35, 73, 0.07);
+  --login-brand-surface: #5548d9;
+  --shadow: 0 16px 44px var(--shadow-color);
+  --radius: 18px;
+  --ease: 180ms ease;
+  --theme-transition-duration: 2000ms;
+  --theme-component-transition-duration: 1450ms;
+  --theme-background-transition-delay: 850ms;
+  --theme-background-transition-duration: 1150ms;
+  --theme-transition-easing: ease-in-out;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #10131e;
+  --surface: #191d2b;
+  --surface-raised: #222739;
+  --surface-muted: #272c3c;
+  --text: #f4f5fa;
+  --text-muted: #a6afc1;
+  --border: #343a4b;
+  --accent: #a99fff;
+  --accent-hover: #c0b8ff;
+  --accent-soft: #343052;
+  --success: #79ddb2;
+  --success-soft: #1e4036;
+  --warning: #f2c477;
+  --warning-soft: #493924;
+  --danger: #ff9baa;
+  --danger-soft: #4b2834;
+  --disabled: #687083;
+  --shadow-color: rgba(0, 0, 0, 0.15);
+  --login-brand-surface: #3b3a5d;
+  --shadow: 0 16px 44px var(--shadow-color);
+}
+
+/* Let component colors settle before the page canvas begins its transition. */
+:root[data-theme-transition="running"] {
+  transition:
+    --bg var(--theme-background-transition-duration) var(--theme-transition-easing) var(--theme-background-transition-delay),
+    --surface var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --surface-raised var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --surface-muted var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --text var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --text-muted var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --border var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --accent var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --accent-hover var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --accent-soft var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --success var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --success-soft var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --warning var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --warning-soft var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --danger var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --danger-soft var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --disabled var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --shadow-color var(--theme-component-transition-duration) var(--theme-transition-easing),
+    --login-brand-surface var(--theme-component-transition-duration) var(--theme-transition-easing);
+}
+
+@theme inline {
+  --color-app: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+}

@@ -1,8 +1,8 @@
 import 'dotenv/config';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { PrismaService } from './prisma.service';
-import { TasksService } from './tasks';
-import type { Actor } from './auth';
+import { PrismaService } from '../prisma/prisma.service';
+import { TasksService } from './tasks.service';
+import type { Actor } from '../auth/auth.types';
 
 describe('regra de exclusão de tarefas (PostgreSQL)', () => {
   const prisma = new PrismaService();

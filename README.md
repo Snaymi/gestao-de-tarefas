@@ -23,7 +23,7 @@ Aplicação full stack de gestão de tarefas com autenticação, perfis de acess
 | Dados | PostgreSQL 16, Prisma 6.19.3, migração versionada |
 | Ambiente | Docker Compose |
 
-O frontend segue Atomic Design em `frontend/src/components/{atoms,molecules,organisms}` e `frontend/src/pages`. Chamadas HTTP ficam em `frontend/src/services/api.ts`; contratos em `frontend/src/types`. O backend separa controllers e services de autenticação, usuários, tarefas e dashboard. O Prisma fica em `backend/prisma`.
+O frontend segue Atomic Design em `frontend/src/components/{atoms,molecules,organisms}` e `frontend/src/pages`. Chamadas HTTP ficam em `frontend/src/services/api.ts`; contratos em `frontend/src/types`. O backend é organizado em módulos NestJS por domínio (`auth`, `users`, `tasks` e `dashboard`), com controllers, services e DTOs separados; `PrismaModule` fornece o acesso compartilhado ao banco.
 
 ## Início rápido com Docker
 
@@ -106,7 +106,7 @@ cd ..\frontend
 npm run build
 ```
 
-O teste de `backend/src/tasks.spec.ts` usa PostgreSQL real e exige `backend/.env`, o banco ativo e a migração aplicada. Ele verifica que uma tarefa concluída permanece no banco após tentativa de exclusão por `ADMIN` e por `USER`, além de cobrir exclusão permitida, acesso negado e conclusão final.
+O teste de `backend/src/tasks/tasks.spec.ts` usa PostgreSQL real e exige `backend/.env`, o banco ativo e a migração aplicada. Ele verifica que uma tarefa concluída permanece no banco após tentativa de exclusão por `ADMIN` e por `USER`, além de cobrir exclusão permitida, acesso negado e conclusão final.
 
 ## API
 

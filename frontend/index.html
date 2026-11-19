@@ -10,9 +10,15 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=3" />
     <title>Fluxo — Gestão de tarefas</title>
     <script>
-      document.documentElement.dataset.theme =
-        localStorage.getItem('theme') ||
-        (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      const root = document.documentElement;
+      const preferredTheme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+      try {
+        const storedTheme = localStorage.getItem('theme');
+        root.dataset.theme = storedTheme === 'dark' || storedTheme === 'light' ? storedTheme : preferredTheme;
+      } catch {
+        root.dataset.theme = preferredTheme;
+      }
     </script>
   </head>
   <body>
