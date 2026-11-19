@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Post, Res, UseGuards } from '@nestjs/common';
-import { Response } from 'express';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { Actor } from './auth.types';
 import { AuthGuard } from './auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { LoginDto } from './dto/login.dto';
 import { AuthService } from './auth.service';
+
+type CookieRequest = Request & { cookies?: Record<string, string | undefined> };
 
 @Controller('auth')
 export class AuthController {
@@ -24,8 +26,12 @@ export class AuthController {
   }
 
   @Post('logout')
-  logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('session', { path: '/api' });
+  async logout(@Req() request: CookieRequest, @Res({ passthrough: true }) response: Response) {
+    try {
+      await this.auth.recordLogout(request.cookies?.session);
+    } finally {
+      response.clearCookie('session', { path: '/api' });
+    }
     return { message: 'Sessão encerrada.' };
   }
 

@@ -7,7 +7,7 @@ import { useToast } from '../../composables/useToast';
 import ThemeSwitcher from '../molecules/ThemeSwitcher.vue';
 defineEmits<{ menu: [] }>();
 const route = useRoute(); const router = useRouter(); const session = useSession(); const { show } = useToast();
-const name = computed(() => ({ '/': 'Visão geral', '/tarefas': 'Tarefas', '/usuarios': 'Usuários' })[route.path] || 'Página');
+const name = computed(() => ({ '/': 'Visão geral', '/tarefas': 'Tarefas', '/usuarios': 'Usuários', '/auditoria': 'Auditoria' })[route.path] || 'Página');
 async function logout() { try { await session.logout(); router.push('/login'); } catch { show('Não foi possível encerrar a sessão.', 'error'); } }
 </script>
 <template><header class="header"><div class="header-left"><button class="btn btn-ghost icon-btn mobile-only" aria-label="Abrir menu" @click="$emit('menu')"><Menu :size="22"/></button><span class="breadcrumb">Workspace <span>/</span> <strong>{{ name }}</strong></span></div><div class="header-right"><ThemeSwitcher/><span class="header-divider"></span><span class="header-avatar" :title="session.user?.name">{{ session.user?.name?.slice(0,1).toUpperCase() }}</span><button class="btn btn-ghost icon-btn" aria-label="Sair" title="Sair" @click="logout"><LogOut :size="18"/></button></div></header></template>

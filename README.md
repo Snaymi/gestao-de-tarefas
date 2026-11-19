@@ -9,6 +9,7 @@ Aplicação full stack de gestão de tarefas com autenticação, perfis de acess
 - Cadastro, edição e desativação de usuários pelo administrador.
 - Criação, consulta, edição, conclusão, pesquisa, filtro e exclusão de tarefas.
 - Dashboard calculado com dados do PostgreSQL.
+- Auditoria paginada de autenticação, usuários e tarefas, acessível apenas ao administrador.
 - Tema claro/escuro com preferência persistida no navegador.
 - Interfaces para desktop, tablet e celular, com estados de carregamento, erro e vazio.
 
@@ -23,7 +24,7 @@ Aplicação full stack de gestão de tarefas com autenticação, perfis de acess
 | Dados | PostgreSQL 16, Prisma 6.19.3, migração versionada |
 | Ambiente | Docker Compose |
 
-O frontend segue Atomic Design em `frontend/src/components/{atoms,molecules,organisms}` e `frontend/src/pages`. Chamadas HTTP ficam em `frontend/src/services/api.ts`; contratos em `frontend/src/types`. O backend é organizado em módulos NestJS por domínio (`auth`, `users`, `tasks` e `dashboard`), com controllers, services e DTOs separados; `PrismaModule` fornece o acesso compartilhado ao banco.
+O frontend segue Atomic Design em `frontend/src/components/{atoms,molecules,organisms}` e `frontend/src/pages`. Chamadas HTTP ficam em `frontend/src/services/api.ts`; contratos em `frontend/src/types`. O backend é organizado em módulos NestJS por domínio (`auth`, `users`, `tasks`, `dashboard` e `audit`), com controllers, services e DTOs separados; `PrismaModule` fornece o acesso compartilhado ao banco.
 
 ## Início rápido com Docker
 
@@ -92,6 +93,7 @@ Essas credenciais são **apenas para desenvolvimento**. Podem ser alteradas ante
 
 - `ADMIN`: lista e cadastra usuários, altera nome, perfil e ativação, e gerencia tarefas de todos. Não pode desativar nem retirar seu próprio perfil administrativo.
 - `USER`: gerencia apenas as próprias tarefas e não acessa a administração de usuários.
+- A auditoria registra ações de autenticação, usuários e tarefas. Apenas `ADMIN` pode consultar `/api/audit`.
 - Usuários são desativados, sem exclusão física, para preservar o histórico das tarefas.
 - A API nunca inclui o hash da senha nas respostas.
 
@@ -108,7 +110,7 @@ npm test
 npm run build
 ```
 
-O teste de `backend/src/tasks/tasks.spec.ts` usa PostgreSQL real e exige `backend/.env`, o banco local ativo e a migração aplicada. Antes de executá-lo, confirme que `DATABASE_URL` aponta para `localhost`; não rode essa suíte contra produção. Ele verifica que uma tarefa concluída permanece no banco após tentativa de exclusão por `ADMIN` e por `USER`, além de cobrir exclusão permitida, acesso negado e conclusão final. O teste do frontend é executado pelo Vitest.
+O teste de `backend/src/tasks/tasks.spec.ts` usa PostgreSQL real e exige `backend/.env`, o banco local ativo e a migração aplicada. Antes de executá-lo, confirme que `DATABASE_URL` aponta para `localhost`; não rode essa suíte contra produção. Ele verifica que uma tarefa concluída permanece no banco após tentativa de exclusão por `ADMIN` e por `USER`, além de cobrir exclusão permitida, acesso negado e conclusão final. Os testes de autenticação, usuários, auditoria e bootstrap usam mocks e não criam contas em produção. O teste do frontend é executado pelo Vitest.
 
 ## API
 
@@ -126,6 +128,7 @@ Todas as rotas começam com `/api`.
 | GET / PATCH / DELETE | `/tasks/:id` | Consulta / edita / exclui tarefa |
 | PATCH | `/tasks/:id/complete` | Conclui tarefa |
 | GET | `/dashboard/summary` | Indicadores e atividades recentes |
+| GET | `/audit` | Auditoria paginada, com busca e filtro por ação (admin) |
 
 ## Build e deploy
 
@@ -142,7 +145,7 @@ O Blueprint de [render.yaml](render.yaml) define a API Node e o PostgreSQL no pl
 
 #### Frontend na Vercel
 
-Conecte `Snaymi/gestao-de-tarefas` na Vercel e configure o diretório raiz como `frontend`, framework Vite, build `npm run build` e saída `dist`. Deixe `VITE_API_URL` sem definir: o navegador usa `/api`. Em `frontend/vercel.json`, mantenha primeiro o rewrite de `/api/:path*` para `https://<domínio-real-da-api-render>/api/:path*` e depois o fallback `/(.*)` para `/index.html`, para preservar as rotas do Vue Router. Substitua o exemplo pelo domínio real antes de publicar. Não use previews com dados de produção.
+O projeto está publicado em [fluxo-gestao-tarefas.vercel.app](https://fluxo-gestao-tarefas.vercel.app). O diretório raiz é `frontend`, com Vite, build `npm run build` e saída `dist`. `VITE_API_URL` permanece sem definir: o navegador usa `/api`. O rewrite em `frontend/vercel.json` aponta para a API real em [fluxo-gestao-api-qsd9.onrender.com](https://fluxo-gestao-api-qsd9.onrender.com/api/health), seguido pelo fallback `/(.*)` para `/index.html`. Previews ficam desativados para não acessar dados de produção.
 
 #### API e banco no Render
 
@@ -160,11 +163,11 @@ npm ci
 npm run admin:create
 ```
 
-O comando solicita a URL externa do PostgreSQL sem exibi-la, exige TLS, mostra apenas host e nome do banco para confirmação e pede nome, e-mail e senha (sem ecoar a senha). Só cria o primeiro ADMIN se o banco estiver vazio; usa bcrypt e uma transação com lock. Nunca passe conexão ou senha como argumento, não salve em `.env` e não cole no chat. Ao concluir, remova o IP temporário do acesso externo. Se já houver usuário ou ADMIN, o comando não cria outro.
+O comando solicita a URL externa do PostgreSQL sem exibi-la, exige TLS, mostra apenas host e nome do banco para confirmação e pede nome, e-mail e senha (sem ecoar a senha). Só cria o primeiro ADMIN se o banco estiver vazio; usa bcrypt e uma transação com lock. Mensagens seguras distinguem falhas de conexão, autenticação PostgreSQL, senha e transação sem mostrar erros internos. Nunca passe conexão ou senha como argumento, não salve em `.env` e não cole no chat. Ao concluir, remova o IP temporário do acesso externo. Se já houver usuário ou ADMIN, o comando não cria outro.
 
 #### Atualizações, logs e substituição do banco
 
-Commits na branch configurada disparam novos builds. Consulte logs de build/runtime no painel de cada provedor e valide `/api/health`, login, sessão após recarga, logout, rotas `/tarefas` e `/usuarios`, operações de tarefas e permissões. O banco gratuito não tem backup gerenciado: antes do 30º dia, exporte o PostgreSQL com `pg_dump` por TLS para um arquivo local protegido. Para substituir por outro PostgreSQL gratuito, restaure esse dump com `pg_restore`, atualize `DATABASE_URL` do Render pelo painel seguro e confirme saúde e dados antes de desativar o banco antigo. Não use `prisma migrate reset` nem `prisma db push` em produção.
+Commits na branch configurada disparam novos builds. Consulte logs de build/runtime no painel de cada provedor e valide `/api/health`, login, sessão após recarga, logout, rotas `/tarefas`, `/usuarios` e `/auditoria`, operações de tarefas e permissões. A migration de auditoria cria tabela, enums e índices sem alterar as tabelas existentes; o Render a aplica via `prisma migrate deploy` na inicialização. O banco gratuito não tem backup gerenciado: antes do 30º dia, exporte o PostgreSQL com `pg_dump` por TLS para um arquivo local protegido. Para substituir por outro PostgreSQL gratuito, restaure esse dump com `pg_restore`, atualize `DATABASE_URL` do Render pelo painel seguro e confirme saúde e dados antes de desativar o banco antigo. Não use `prisma migrate reset` nem `prisma db push` em produção.
 
 O Docker Compose fornecido continua destinado ao desenvolvimento local. Nunca publique `backend/.env`, connection strings ou valores de segredos no GitHub.
 

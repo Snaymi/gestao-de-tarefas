@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { AuditAction } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { TasksService } from './tasks.service';
 import type { Actor } from '../auth/auth.types';
@@ -11,7 +12,19 @@ describe('regra de exclusão de tarefas (PostgreSQL)', () => {
   let admin: Actor; let user: Actor; let other: Actor;
   const taskIds: string[] = []; const userIds: string[] = [];
 
+  function assertLocalDatabase() {
+    const value = process.env.DATABASE_URL;
+    if (!value) throw new Error('DATABASE_URL local é obrigatória para testes de integração.');
+    let hostname: string;
+    try { hostname = new URL(value).hostname.toLowerCase(); }
+    catch { throw new Error('DATABASE_URL de teste inválida.'); }
+    if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) {
+      throw new Error('Testes de integração só podem usar PostgreSQL local.');
+    }
+  }
+
   beforeAll(async () => {
+    assertLocalDatabase();
     await prisma.$connect();
     for (const role of ['ADMIN', 'USER', 'USER'] as const) {
       const created = await prisma.user.create({ data: { name: role, email: `${role}-${userIds.length}-${unique}@test.local`, passwordHash: 'test', role } });
@@ -22,7 +35,9 @@ describe('regra de exclusão de tarefas (PostgreSQL)', () => {
     other = { id: userIds[2], name: 'Other', email: '', role: 'USER' };
   });
   afterAll(async () => {
+    assertLocalDatabase();
     await prisma.task.deleteMany({ where: { id: { in: taskIds } } });
+    await prisma.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     await prisma.$disconnect();
   });
@@ -52,5 +67,31 @@ describe('regra de exclusão de tarefas (PostgreSQL)', () => {
     await service.complete(task.id, user);
     await expect(service.remove(task.id, admin)).rejects.toBeInstanceOf(ConflictException);
     expect((await prisma.task.findUnique({ where: { id: task.id } }))?.status).toBe('COMPLETED');
+  });
+
+  it('persiste criação, atualização e conclusão com auditoria atômica', async () => {
+    const task = await service.create({ title: ` Fluxo ${unique} `, description: ' Inicial ' }, user);
+    taskIds.push(task.id);
+    expect((await prisma.task.findUnique({ where: { id: task.id } }))?.title).toBe(`Fluxo ${unique}`);
+    expect(await prisma.auditLog.count({ where: { entityId: task.id, action: AuditAction.TASK_CREATED } })).toBe(1);
+
+    await service.update(task.id, { title: `Atualizada ${unique}`, description: 'Revisada' }, user);
+    expect((await prisma.task.findUnique({ where: { id: task.id } }))?.description).toBe('Revisada');
+    expect(await prisma.auditLog.count({ where: { entityId: task.id, action: AuditAction.TASK_UPDATED } })).toBe(1);
+
+    await service.complete(task.id, user);
+    expect((await prisma.task.findUnique({ where: { id: task.id } }))?.status).toBe('COMPLETED');
+    expect(await prisma.auditLog.count({ where: { entityId: task.id, action: AuditAction.TASK_COMPLETED } })).toBe(1);
+    await expect(service.remove(task.id, admin)).rejects.toBeInstanceOf(ConflictException);
+    expect(await prisma.task.findUnique({ where: { id: task.id } })).not.toBeNull();
+    expect(await prisma.auditLog.count({ where: { entityId: task.id, action: AuditAction.TASK_DELETED } })).toBe(0);
+  });
+
+  it('persiste exclusão de tarefa pendente e seu registro de auditoria', async () => {
+    const task = await service.create({ title: `Excluir ${unique}` }, user);
+    taskIds.push(task.id);
+    await service.remove(task.id, user);
+    expect(await prisma.task.findUnique({ where: { id: task.id } })).toBeNull();
+    expect(await prisma.auditLog.count({ where: { entityId: task.id, action: AuditAction.TASK_DELETED } })).toBe(1);
   });
 });

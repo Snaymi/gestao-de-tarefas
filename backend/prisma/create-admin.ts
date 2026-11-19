@@ -3,6 +3,66 @@ import { hash } from 'bcryptjs';
 import { stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline/promises';
 
+export class BootstrapError extends Error {
+  constructor(readonly code: 'connection' | 'postgres-auth' | 'password-invalid' | 'password-mismatch' | 'transaction' | 'database-not-empty', message: string) {
+    super(message);
+    this.name = 'BootstrapError';
+  }
+}
+
+function prismaCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const value = error as { code?: unknown; errorCode?: unknown };
+  return typeof value.errorCode === 'string' ? value.errorCode : typeof value.code === 'string' ? value.code : undefined;
+}
+
+export function safeDatabaseError(error: unknown, phase: 'connection' | 'query' | 'transaction'): BootstrapError {
+  const code = prismaCode(error);
+  if (code === 'P1000' || code === 'P1010') {
+    return new BootstrapError('postgres-auth', 'Autenticação do PostgreSQL recusada. Confira o usuário, a senha e as permissões da URL externa.');
+  }
+  if (phase === 'connection' || ['P1001', 'P1002', 'P1003', 'P1011', 'P1017'].includes(code ?? '')) {
+    return new BootstrapError('connection', 'Falha de conexão com o PostgreSQL. Confira a URL externa, o TLS e a liberação temporária do seu IP.');
+  }
+  if (phase === 'transaction') {
+    return new BootstrapError('transaction', 'Falha na operação transacional. Nenhum ADMIN foi confirmado; confira as restrições do banco antes de tentar novamente.');
+  }
+  return new BootstrapError('transaction', 'Falha ao consultar o PostgreSQL. Confira se as migrations foram aplicadas antes de tentar novamente.');
+}
+
+export function safeBootstrapMessage(error: unknown): string {
+  return error instanceof BootstrapError ? error.message : 'Falha inesperada no bootstrap. Nenhuma mensagem interna será exibida.';
+}
+
+export function validatePassword(password: string, confirmation: string): void {
+  if (password.length < 12) throw new BootstrapError('password-invalid', 'Senha inválida: use ao menos 12 caracteres.');
+  if (password !== confirmation) throw new BootstrapError('password-mismatch', 'A confirmação da senha não coincide.');
+}
+
+export async function createAdminInTransaction(
+  prisma: Pick<PrismaClient, '$transaction'>,
+  input: { name: string; email: string; password: string; confirmation: string }
+): Promise<'created' | 'admin-exists' | 'database-not-empty'> {
+  validatePassword(input.password, input.confirmation);
+  const passwordHash = await hash(input.password, 12);
+  try {
+    return await prisma.$transaction(async transaction => {
+      // SELECT da função void não pode ser desserializado pelo Prisma. O literal inteiro preserva o lock.
+      const rows = await transaction.$queryRaw<Array<{ acquired: number }>>`
+        SELECT 1 AS acquired FROM pg_advisory_xact_lock(hashtext('fluxo_first_admin_bootstrap'))
+      `;
+      if (rows.length !== 1 || rows[0].acquired !== 1) throw new Error('Advisory lock não confirmado.');
+      if (await transaction.user.count({ where: { role: 'ADMIN' } })) return 'admin-exists';
+      if (await transaction.user.count()) return 'database-not-empty';
+
+      await transaction.user.create({ data: { name: input.name, email: input.email, passwordHash, role: 'ADMIN' } });
+      return 'created';
+    });
+  } catch (error) {
+    throw safeDatabaseError(error, 'transaction');
+  }
+}
+
 function askLine(message: string): Promise<string> {
   const readline = createInterface({ input: stdin, output: stdout });
   return readline.question(message).finally(() => readline.close());
@@ -80,14 +140,26 @@ async function main() {
 
   const prisma = new PrismaClient({ datasources: { db: { url: databaseUrl.toString() } } });
   try {
-    await prisma.$connect();
+    try {
+      await prisma.$connect();
+    } catch (error) {
+      throw safeDatabaseError(error, 'connection');
+    }
 
-    if (await prisma.user.count({ where: { role: 'ADMIN' } })) {
+    let adminCount: number;
+    let userCount: number;
+    try {
+      adminCount = await prisma.user.count({ where: { role: 'ADMIN' } });
+      userCount = adminCount ? 0 : await prisma.user.count();
+    } catch (error) {
+      throw safeDatabaseError(error, 'query');
+    }
+    if (adminCount) {
       stdout.write('Já existe um ADMIN; nenhuma alteração foi feita.\n');
       return;
     }
-    if (await prisma.user.count()) {
-      throw new Error('O banco já contém usuários, mas nenhum ADMIN. O bootstrap inicial foi recusado.');
+    if (userCount) {
+      throw new BootstrapError('database-not-empty', 'O banco contém usuários, mas nenhum ADMIN. O bootstrap inicial foi recusado.');
     }
 
     const name = (await askLine('Nome do administrador: ')).trim();
@@ -98,29 +170,19 @@ async function main() {
 
     const password = await askHidden('Senha (mínimo de 12 caracteres; entrada oculta): ');
     const confirmationPassword = await askHidden('Confirme a senha (entrada oculta): ');
-    if (password.length < 12 || password !== confirmationPassword) {
-      throw new Error('A senha precisa ter ao menos 12 caracteres e as confirmações devem coincidir.');
-    }
+    const result = await createAdminInTransaction(prisma, { name, email, password, confirmation: confirmationPassword });
 
-    const passwordHash = await hash(password, 12);
-    const result = await prisma.$transaction(async transaction => {
-      await transaction.$queryRaw`SELECT pg_advisory_xact_lock(hashtext('fluxo_first_admin_bootstrap'))`;
-      if (await transaction.user.count({ where: { role: 'ADMIN' } })) return 'admin-exists';
-      if (await transaction.user.count()) return 'database-not-empty';
-
-      await transaction.user.create({ data: { name, email, passwordHash, role: 'ADMIN' } });
-      return 'created';
-    });
-
-    if (result === 'created') stdout.write(`Administrador criado para ${email}.\n`);
+    if (result === 'created') stdout.write('Administrador criado.\n');
     else if (result === 'admin-exists') stdout.write('Outro ADMIN já foi criado; nenhuma alteração adicional foi feita.\n');
-    else throw new Error('O banco deixou de estar vazio. Nenhum administrador foi criado.');
+    else throw new BootstrapError('database-not-empty', 'O banco deixou de estar vazio. Nenhum administrador foi criado.');
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main().catch(() => {
-  console.error('Bootstrap não concluído. Confira o acesso ao banco e execute novamente; valores secretos não são exibidos.');
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch(error => {
+    console.error(safeBootstrapMessage(error));
+    process.exitCode = 1;
+  });
+}

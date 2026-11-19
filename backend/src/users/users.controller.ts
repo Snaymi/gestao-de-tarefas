@@ -30,7 +30,7 @@ export class UsersController {
   @Post()
   create(@Body() dto: CreateUserDto, @CurrentUser() actor: Actor) {
     this.admin(actor);
-    return this.users.create(dto);
+    return this.users.create(dto, actor);
   }
 
   @Patch(':id')

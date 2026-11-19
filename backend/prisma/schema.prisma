@@ -17,6 +17,27 @@ enum TaskStatus {
   COMPLETED
 }
 
+enum AuditAction {
+  LOGIN_SUCCEEDED
+  LOGIN_FAILED
+  LOGIN_BLOCKED_INACTIVE
+  LOGOUT
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_COMPLETED
+  TASK_DELETED
+  USER_CREATED
+  USER_UPDATED
+  USER_ACTIVATED
+  USER_DEACTIVATED
+}
+
+enum AuditEntityType {
+  AUTH
+  TASK
+  USER
+}
+
 model User {
   id           String   @id @default(uuid())
   name         String
@@ -41,4 +62,24 @@ model Task {
 
   @@index([ownerId, status])
   @@index([createdAt])
+}
+
+model AuditLog {
+  id          String          @id @default(uuid())
+  actorId     String?
+  actorName   String
+  actorEmail  String?
+  actorRole   Role?
+  action      AuditAction
+  entityType  AuditEntityType
+  entityId    String?
+  entityLabel String?
+  summary     String
+  details     Json?
+  createdAt   DateTime        @default(now())
+
+  @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([entityType, createdAt])
+  @@index([actorId, createdAt])
 }
