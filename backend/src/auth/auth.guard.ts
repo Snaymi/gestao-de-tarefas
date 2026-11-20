@@ -12,14 +12,22 @@ export class AuthGuard implements CanActivate {
     const token = request.cookies?.session;
     if (!token) throw new UnauthorizedException('Faça login para continuar.');
 
+    let payload: { sub?: unknown };
     try {
-      const payload = await this.jwt.verifyAsync<{ sub: string }>(token);
-      const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
-      if (!user?.active) throw new Error('Inactive');
-      request.actor = { id: user.id, name: user.name, email: user.email, role: user.role };
-      return true;
+      payload = await this.jwt.verifyAsync<{ sub?: unknown }>(token);
     } catch {
       throw new UnauthorizedException('Sessão expirada. Entre novamente.');
     }
+
+    const subject = payload?.sub;
+    if (typeof subject !== 'string' || !subject.trim()) {
+      throw new UnauthorizedException('Sessão expirada. Entre novamente.');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: subject } });
+    if (!user?.active) throw new UnauthorizedException('Sessão expirada. Entre novamente.');
+
+    request.actor = { id: user.id, name: user.name, email: user.email, role: user.role };
+    return true;
   }
 }
