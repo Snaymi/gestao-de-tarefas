@@ -6,6 +6,10 @@ Aplicação full stack de gestão de tarefas com autenticação, perfis de acess
 
 Acesse o [Fluxo — Gestão de Tarefas](https://fluxo-gestao-tarefas.vercel.app/login) para avaliar a plataforma online.
 
+> **Primeiro acesso após inatividade.** A Vercel serve a interface, e a API roda no plano Free do Render. Após 15 minutos sem tráfego, a API entra em repouso. O próximo acesso leva cerca de 1 minuto para reativá-la (53 segundos no teste em produção). [Saiba mais sobre o plano Free do Render](https://render.com/docs/free#spinning-down-on-idle).
+>
+> Ao abrir a página inicial ou uma área protegida, **“Verificando sua sessão…”** é uma etapa normal e costuma durar poucos segundos quando a API já está ativa. Assim que a API responder, o sistema abre a página solicitada se a sessão for válida ou mostra o login. O [link direto para o login](https://fluxo-gestao-tarefas.vercel.app/login) deixa o formulário disponível durante a espera. Se a API não responder em até 90 segundos, a tela oferece **Tentar novamente**.
+
 A conta preparada para a avaliação tem perfil `ADMIN` e usa o e-mail `admin@demo.com.br`. Os dados de acesso, incluindo a senha, são fornecidos diretamente aos avaliadores por canal privado.
 
 As contas `@demo.local` descritas na seção [Contas de demonstração](#contas-de-demonstração) são exclusivas do ambiente de desenvolvimento local.
